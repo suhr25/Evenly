@@ -223,9 +223,21 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /*
+     * Decorative elements that deliberately bleed past their parent (the
+     * BorderGlow outer glow sits at a negative inset) must never widen the
+     * document and produce a horizontal scrollbar.
+     *
+     * `clip` rather than `hidden`: hidden would turn body into a scroll
+     * container and break `position: sticky` on the topbar and sidebar.
+     */
+    overflow-x: clip;
   }
   html {
     @apply font-sans;
+    /* Paired with body: the overflow guard has to sit on the element whose
+       scrollWidth actually drives the page scrollbar. */
+    overflow-x: clip;
   }
 
   /* Headings carry slight negative tracking. At display sizes the default
