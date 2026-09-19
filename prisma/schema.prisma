@@ -1,0 +1,637 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Auth.js (NextAuth) models ----------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  phone         String?
+  upiId         String?
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  currency      String    @default("INR")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts         Account[]
+  sessions         Session[]
+  categories       ExpenseCategory[]
+  expenses         Expense[]
+  incomes          Income[]
+  budgets          Budget[]
+  createdGroups    Group[]
+  groupMemberships GroupMember[]
+  savingsGoals     SavingsGoal[]
+  aiConversations  AIConversation[]
+  receipts         Receipt[]
+  subscriptions    Subscription[]
+  sentInvites      GroupInvite[]
+  userCards        UserCard[]
+  gmailConnection      GmailConnection?
+  importedTransactions ImportedTransaction[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Finance domain models (Phase 0-2) ----------
+
+enum PaymentMethod {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum RecurrenceInterval {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  userId    String? // null = system default category, visible to everyone
+  name      String
+  icon      String
+  color     String
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses          Expense[]
+  budgets           Budget[]
+  groupExpenses     GroupExpense[]
+  cardCategoryRules CardCategoryRule[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Expense {
+  id                 String              @id @default(cuid())
+  userId             String
+  categoryId         String
+  userCardId         String? // which owned card paid for this, if any, powers missed-reward analysis later
+  isOnline           Boolean? // null = not specified; drives ONLINE/OFFLINE reward-rule matching
+  groupExpenseId     String? // set when this row is auto-synced from a shared GroupExpense
+  amount             Decimal             @db.Decimal(12, 2)
+  description        String
+  date               DateTime
+  paymentMethod      PaymentMethod       @default(CASH)
+  isRecurring        Boolean             @default(false)
+  recurrenceInterval RecurrenceInterval?
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category     ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  // SetNull, not Cascade: removing a card from your portfolio must never delete the
+  // spending history that happened on it.
+  userCard     UserCard?       @relation(fields: [userCardId], references: [id], onDelete: SetNull)
+  // Cascade here is deliberate and different from userCard above: a group-synced expense is
+  // derived data with no independent meaning once its source GroupExpense is gone.
+  groupExpense GroupExpense?   @relation(fields: [groupExpenseId], references: [id], onDelete: Cascade)
+
+  @@unique([groupExpenseId, userId])
+  @@index([userId, date])
+  @@index([userId, categoryId])
+  @@index([userCardId])
+}
+
+model Income {
+  id                 String              @id @default(cuid())
+  userId             String
+  amount             Decimal             @db.Decimal(12, 2)
+  source             String
+  date               DateTime
+  isRecurring        Boolean             @default(false)
+  recurrenceInterval RecurrenceInterval?
+  settlementId       String?             @unique // set when auto-synced from a group settlement paid to this user
+  createdAt          DateTime            @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  settlement Settlement? @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  userId      String
+  categoryId  String
+  amount      Decimal  @db.Decimal(12, 2)
+  periodStart DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, periodStart])
+  @@index([userId, periodStart])
+}
+
+// ---------- Group expenses (Phase 4) ----------
+
+enum SplitType {
+  EQUAL
+  EXACT
+  PERCENTAGE
+  SHARES
+}
+
+model Group {
+  id        String   @id @default(cuid())
+  name      String
+  icon      String   @default("👥")
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator     User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  members     GroupMember[]
+  expenses    GroupExpense[]
+  settlements Settlement[]
+  invites     GroupInvite[]
+
+  @@index([createdBy])
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String? // null = ledger-only member without an account
+  name     String
+  email    String?
+  phone    String?
+  isActive Boolean  @default(true)
+  joinedAt DateTime @default(now())
+
+  group               Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user                User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  paidExpenses        GroupExpense[]      @relation("PaidByMember")
+  shares              GroupExpenseShare[]
+  settlementsSent     Settlement[]        @relation("SettlementFrom")
+  settlementsReceived Settlement[]        @relation("SettlementTo")
+  invites             GroupInvite[]
+
+  @@index([groupId])
+  @@index([userId])
+}
+
+model GroupInvite {
+  id              String    @id @default(cuid())
+  groupId         String
+  memberId        String // the ledger-only GroupMember this invite will link once accepted
+  token           String    @unique @default(cuid())
+  invitedByUserId String
+  acceptedAt      DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+
+  group     Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  member    GroupMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  invitedBy User        @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([memberId])
+}
+
+model GroupExpense {
+  id              String    @id @default(cuid())
+  groupId         String
+  categoryId      String
+  paidByMemberId  String
+  receiptId       String?   @unique
+  description     String
+  amount          Decimal   @db.Decimal(12, 2)
+  date            DateTime
+  splitType       SplitType
+  createdByUserId String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  group          Group               @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  category       ExpenseCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  paidBy         GroupMember         @relation("PaidByMember", fields: [paidByMemberId], references: [id], onDelete: Restrict)
+  receipt        Receipt?            @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  shares         GroupExpenseShare[]
+  // One per participating member with a linked Evenly account, holding their own share -
+  // never the full amount, so Money Flow/Budgets reflect true personal cost, not double
+  // the group's total.
+  syncedExpenses Expense[]
+
+  @@index([groupId, date])
+}
+
+model GroupExpenseShare {
+  id              String   @id @default(cuid())
+  groupExpenseId  String
+  groupMemberId   String
+  shareAmount     Decimal  @db.Decimal(12, 2)
+  sharePercentage Decimal? @db.Decimal(5, 2)
+  shareUnits      Int?
+
+  groupExpense GroupExpense @relation(fields: [groupExpenseId], references: [id], onDelete: Cascade)
+  groupMember  GroupMember  @relation(fields: [groupMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([groupExpenseId, groupMemberId])
+  @@index([groupMemberId])
+}
+
+model Settlement {
+  id              String   @id @default(cuid())
+  groupId         String
+  fromMemberId    String
+  toMemberId      String
+  amount          Decimal  @db.Decimal(12, 2)
+  note            String?
+  settledAt       DateTime @default(now())
+  createdByUserId String
+
+  group        Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  fromMember   GroupMember @relation("SettlementFrom", fields: [fromMemberId], references: [id], onDelete: Restrict)
+  toMember     GroupMember @relation("SettlementTo", fields: [toMemberId], references: [id], onDelete: Restrict)
+  // Set only when the receiving member has a linked Evenly account, a repayment received
+  // shows up as income, since that money was never counted as personal spend to begin with.
+  syncedIncome Income?
+
+  @@index([groupId])
+}
+
+// ---------- Savings goals (Phase 9) ----------
+
+model SavingsGoal {
+  id                  String    @id @default(cuid())
+  userId              String
+  name                String
+  icon                String    @default("🎯")
+  targetAmount        Decimal   @db.Decimal(12, 2)
+  currentAmount       Decimal   @default(0) @db.Decimal(12, 2)
+  targetDate          DateTime?
+  monthlyContribution Decimal?  @db.Decimal(12, 2)
+  isCompleted         Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions GoalContribution[]
+
+  @@index([userId])
+}
+
+model GoalContribution {
+  id        String   @id @default(cuid())
+  goalId    String
+  amount    Decimal  @db.Decimal(12, 2)
+  note      String?
+  createdAt DateTime @default(now())
+
+  goal SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
+}
+
+// ---------- AI financial assistant (Phase 7) ----------
+
+model AIConversation {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String   @default("Chat with Evenly AI")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AIMessage[]
+
+  @@index([userId])
+}
+
+model AIMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+// ---------- AI bill scanner (Phase 6) ----------
+
+model Receipt {
+  id         String    @id @default(cuid())
+  userId     String
+  imageKey   String
+  merchant   String?
+  date       DateTime?
+  subtotal   Decimal?  @db.Decimal(12, 2)
+  tax        Decimal?  @db.Decimal(12, 2)
+  discount   Decimal?  @db.Decimal(12, 2)
+  tip        Decimal?  @db.Decimal(12, 2)
+  total      Decimal?  @db.Decimal(12, 2)
+  confidence String?
+  createdAt  DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items        ReceiptItem[]
+  groupExpense GroupExpense?
+
+  @@index([userId])
+}
+
+model ReceiptItem {
+  id         String  @id @default(cuid())
+  receiptId  String
+  name       String
+  quantity   Decimal @db.Decimal(10, 2)
+  unitPrice  Decimal @db.Decimal(12, 2)
+  totalPrice Decimal @db.Decimal(12, 2)
+
+  receipt Receipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId])
+}
+
+// ---------- Subscription / ghost-expense detection (Phase 12-13) ----------
+
+enum SubscriptionStatus {
+  DETECTED
+  ACTIVE
+  IGNORED
+  INACTIVE
+}
+
+model Subscription {
+  id               String             @id @default(cuid())
+  userId           String
+  merchant         String
+  displayName      String?
+  amount           Decimal            @db.Decimal(12, 2)
+  interval         RecurrenceInterval
+  occurrenceCount  Int                @default(2)
+  firstChargeAt    DateTime
+  lastChargeAt     DateTime
+  status           SubscriptionStatus @default(DETECTED)
+  sourceExpenseIds String[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, merchant])
+  @@index([userId])
+}
+
+// ---------- Credit card intelligence platform (Phase 1: catalog + portfolio) ----------
+//
+// CardProduct = static, issuer-defined product facts (shared across every user who owns it).
+// UserCard = one user's ownership of a CardProduct, plus their own account state
+// (limit/outstanding/reward balance), each field tagged with where it came from.
+// Never merge these two concerns into one table: product facts change for everyone at once
+// (issuer repricing), account state changes per-user and per-statement-cycle.
+
+enum CardNetwork {
+  VISA
+  MASTERCARD
+  RUPAY
+  AMEX
+  DINERS
+}
+
+enum RewardCurrencyType {
+  POINTS
+  CASHBACK
+  MILES
+}
+
+/// Some card boosts key off spend category (Travel, Dining...), others off channel
+/// (online vs offline, e.g. SBI Cashback), and some off both. CardCategoryRule.category
+/// is nullable to represent "any category" so channel-only rules are expressible.
+enum CardChannel {
+  ANY
+  ONLINE
+  OFFLINE
+}
+
+enum CardCapPeriod {
+  MONTHLY
+  ANNUAL
+}
+
+/// Provenance for a user-entered/synced field. AA_SYNC and ISSUER_SYNC are not wired to a
+/// real provider yet (Phase 8) but the column exists now so sync doesn't require a migration.
+enum CardDataSource {
+  MANUAL
+  AA_SYNC
+  ISSUER_SYNC
+}
+
+model Issuer {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  shortCode String   @unique
+  createdAt DateTime @default(now())
+
+  cardProducts CardProduct[]
+}
+
+model RewardCurrency {
+  id           String             @id @default(cuid())
+  name         String             @unique
+  type         RewardCurrencyType
+  /// Estimated INR value of one unit of this currency at a sensible default redemption path.
+  /// Cashback currencies are literally rupees, so unitValueInr = 1.0000 for those.
+  unitValueInr Decimal            @db.Decimal(6, 4)
+  valueNote    String?
+  createdAt    DateTime           @default(now())
+
+  cardProducts CardProduct[]
+}
+
+model CardProduct {
+  id       String      @id @default(cuid())
+  issuerId String
+  name     String
+  slug     String      @unique
+  network  CardNetwork
+  variant  String?
+
+  joiningFee           Decimal? @db.Decimal(12, 2)
+  annualFee            Decimal  @default(0) @db.Decimal(12, 2)
+  annualFeeWaiverSpend Decimal? @db.Decimal(12, 2)
+
+  rewardCurrencyId         String?
+  /// Units of reward currency earned per Rs.100 of flat/base spend, before any
+  /// category or channel accelerator in CardCategoryRule is applied.
+  baseRewardRateOnCurrency Decimal? @db.Decimal(6, 3)
+
+  foreignTxnFeePercent Decimal? @db.Decimal(5, 2)
+  loungeAccessDomestic Int?
+  loungeAccessIntl     Int?
+
+  /// Phase-1 simplified free text. Normalized into structured Milestone/Benefit
+  /// tables in Phase 6 once the insights engine needs to query them individually.
+  milestoneNote   String?
+  benefitsNote    String?
+  exclusionsNote  String?
+  eligibilityNote String?
+
+  isActive        Boolean   @default(true)
+  /// Marks catalog rows seeded for demo/dev purposes per the product's data-honesty rule.
+  isSeedData      Boolean   @default(true)
+  sourceNote      String?
+  sourceCheckedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  issuer         Issuer             @relation(fields: [issuerId], references: [id], onDelete: Restrict)
+  rewardCurrency RewardCurrency?    @relation(fields: [rewardCurrencyId], references: [id])
+  categoryRules  CardCategoryRule[]
+  userCards      UserCard[]
+
+  @@unique([issuerId, name])
+  @@index([issuerId])
+}
+
+model CardCategoryRule {
+  id            String         @id @default(cuid())
+  cardProductId String
+  categoryId    String? // null = applies across all categories (channel-only rule)
+  channel       CardChannel    @default(ANY)
+  multiplier    Decimal        @db.Decimal(4, 2) // applied on top of baseRewardRateOnCurrency
+  capAmount     Decimal?       @db.Decimal(12, 2)
+  capPeriod     CardCapPeriod?
+  notes         String?
+
+  cardProduct CardProduct      @relation(fields: [cardProductId], references: [id], onDelete: Cascade)
+  category    ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([cardProductId, categoryId, channel])
+  @@index([cardProductId])
+}
+
+model UserCard {
+  id            String @id @default(cuid())
+  userId        String
+  cardProductId String
+
+  nickname       String?
+  lastFourDigits String? // display only; full PAN is never stored
+
+  creditLimit   Decimal? @db.Decimal(12, 2)
+  outstanding   Decimal? @db.Decimal(12, 2)
+  rewardBalance Decimal? @db.Decimal(12, 2)
+
+  statementDate  Int? // day of month, 1-31
+  paymentDueDate Int? // day of month, 1-31
+  status         String @default("ACTIVE") // ACTIVE | CLOSED | FROZEN
+
+  creditLimitSource   CardDataSource @default(MANUAL)
+  outstandingSource   CardDataSource @default(MANUAL)
+  rewardBalanceSource CardDataSource @default(MANUAL)
+  lastSyncedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardProduct CardProduct @relation(fields: [cardProductId], references: [id], onDelete: Restrict)
+  expenses    Expense[]
+
+  @@index([userId])
+  @@index([cardProductId])
+}
+
+// ---------- Gmail transaction auto-import (Phase 12) ----------
+// One Gmail account linked per user, purely to search for bank transaction
+// alert emails (gmail.readonly scope only, never sends or modifies mail).
+// Detected transactions land in ImportedTransaction as an unconfirmed inbox;
+// nothing here ever becomes a real Expense/Income until the user reviews and
+// confirms it, since a regex parse of an email is never treated as ground
+// truth on its own.
+model GmailConnection {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  emailAddress String
+  accessToken  String    @db.Text
+  refreshToken String    @db.Text
+  expiresAt    DateTime
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ImportedTransaction {
+  id             String   @id @default(cuid())
+  userId         String
+  gmailMessageId String
+  direction      String // DEBIT | CREDIT
+  amount         Decimal  @db.Decimal(12, 2)
+  merchant       String?
+  bankName       String?
+  lastFourDigits String?
+  occurredAt     DateTime
+  rawSnippet     String   @db.Text
+  // PENDING | CONFIRMED | DISMISSED. Rows are never deleted once handled:
+  // each sync re-scans the whole lookback window, so a confirmed or
+  // dismissed row has to stay behind as a tombstone or the same email would
+  // be re-imported as pending on every sync.
+  status         String   @default("PENDING")
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, gmailMessageId])
+  @@index([userId, status])
+}
