@@ -1,10 +1,28 @@
 import bcrypt from "bcryptjs";
+import fs from "node:fs";
+import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, PaymentMethod } from "../src/generated/prisma/client";
 import { splitByPercentage, splitByShares, splitEqual } from "../src/lib/money";
 import { CARD_PRODUCTS, ISSUERS, REWARD_CURRENCIES } from "./card-catalog-data";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+// Mirrors the TLS handling in src/lib/prisma.ts: RDS needs the Amazon CA
+// supplied explicitly, and sslmode has to come out of the URL so node-postgres
+// does not override the verified `ssl` config with its own handling.
+const rawUrl = process.env.DATABASE_URL ?? "";
+const wantsSsl = /sslmode=(require|verify-ca|verify-full)/.test(rawUrl);
+const connectionString = rawUrl.replace(/([?&])sslmode=[^&]*&?/, "$1").replace(/[?&]$/, "");
+
+function seedSsl() {
+  if (!wantsSsl) return undefined;
+  const inline = process.env.DATABASE_CA_CERT;
+  if (inline?.includes("BEGIN CERTIFICATE")) return { ca: inline, rejectUnauthorized: true as const };
+  const bundle = path.join(process.cwd(), "prisma", "rds-ca-bundle.pem");
+  if (fs.existsSync(bundle)) return { ca: fs.readFileSync(bundle, "utf8"), rejectUnauthorized: true as const };
+  return { rejectUnauthorized: false as const };
+}
+
+const adapter = new PrismaPg({ connectionString, ssl: seedSsl() });
 const prisma = new PrismaClient({ adapter });
 
 // Colors reference the fixed categorical CSS custom properties defined in

@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -5,37 +7,53 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const connectionString = process.env.DATABASE_URL;
+const rawConnectionString = process.env.DATABASE_URL ?? "";
 
 /**
- * Amazon RDS terminates TLS with a certificate signed by the Amazon RDS root
- * CA, which is not in Node's default trust store. Without the CA supplied,
- * `sslmode=require` either fails verification or silently degrades to an
- * unverified connection.
+ * Amazon RDS presents a certificate signed by the Amazon RDS root CA, which is
+ * not in Node's default trust store. Two things therefore have to happen for a
+ * verified connection:
  *
- * Set DATABASE_CA_CERT to the contents of the RDS global bundle to get a
- * properly verified connection. Local Docker Postgres speaks plaintext, so
- * SSL stays off unless the URL asks for it.
+ *  1. Supply the CA bundle, so verification can actually succeed.
+ *  2. Strip `sslmode` from the URL. node-postgres reads `sslmode=require` from
+ *     the connection string and applies its own handling, which overrides the
+ *     `ssl` object passed here and fails with "self-signed certificate in
+ *     certificate chain". Passing the CA through `ssl` is the path that works.
+ *
+ * The tempting shortcut is `rejectUnauthorized: false`. That encrypts the
+ * connection but verifies nothing, so it offers no protection against a
+ * man-in-the-middle sitting between the app and the database. For financial
+ * data that is not an acceptable default.
  */
-function sslConfig() {
-  const ca = process.env.DATABASE_CA_CERT;
-  if (ca) {
-    return { ca, rejectUnauthorized: true as const };
-  }
+function loadCaCert(): string | undefined {
+  const inline = process.env.DATABASE_CA_CERT;
+  if (inline && inline.includes("BEGIN CERTIFICATE")) return inline;
 
-  const wantsSsl = connectionString?.includes("sslmode=require");
+  const bundlePath = path.join(process.cwd(), "prisma", "rds-ca-bundle.pem");
+  if (fs.existsSync(bundlePath)) return fs.readFileSync(bundlePath, "utf8");
+
+  return undefined;
+}
+
+const wantsSsl = /sslmode=(require|verify-ca|verify-full)/.test(rawConnectionString);
+// sslmode is handled here via the ssl option instead, for the reason above.
+const connectionString = rawConnectionString.replace(/([?&])sslmode=[^&]*&?/, "$1").replace(/[?&]$/, "");
+
+function sslConfig() {
   if (!wantsSsl) return undefined;
+
+  const ca = loadCaCert();
+  if (ca) return { ca, rejectUnauthorized: true as const };
 
   if (process.env.NODE_ENV === "production") {
     throw new Error(
-      "DATABASE_URL requests SSL but DATABASE_CA_CERT is not set. Refusing to " +
+      "DATABASE_URL requests SSL but no CA certificate is available. Set " +
+        "DATABASE_CA_CERT or provide prisma/rds-ca-bundle.pem. Refusing to " +
         "connect to a production database without verifying its certificate."
     );
   }
 
-  // Non-production only: encrypted but unverified, so a developer can point at
-  // RDS before the CA bundle is wired up.
-  console.warn("[prisma] Connecting over SSL without CA verification (non-production).");
+  console.warn("[prisma] SSL requested but no CA bundle found; connection will be unverified.");
   return { rejectUnauthorized: false as const };
 }
 
