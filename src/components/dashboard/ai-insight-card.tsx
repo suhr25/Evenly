@@ -12,6 +12,18 @@ const SEVERITY_DOT: Record<AIInsight["severity"], string> = {
   positive: "bg-positive",
 };
 
+// Each reason gets its own line, because they ask different things of the
+// reader: wait, come back later, or go and configure something.
+const UNAVAILABLE_COPY: Record<
+  Extract<InsightResult, { available: false }>["reason"],
+  string
+> = {
+  "no-data": "Add a few expenses and insights will start appearing here.",
+  error: "Insights could not be generated just now. They will be back on your next visit.",
+  "not-configured":
+    "AI features are currently unavailable. Everything else in Evenly still works.",
+};
+
 export function AIInsightCard({ result }: { result: InsightResult }) {
   return (
     // Edge glow marks the AI panel as the one generated surface on the page.
@@ -27,10 +39,7 @@ export function AIInsightCard({ result }: { result: InsightResult }) {
       </CardHeader>
       <CardContent>
         {!result.available ? (
-          <p className="text-sm text-muted-foreground">
-            AI features are currently unavailable. Everything else in Evenly still works.
-            Insights will appear here once an AI provider is configured.
-          </p>
+          <p className="text-sm text-muted-foreground">{UNAVAILABLE_COPY[result.reason]}</p>
         ) : result.insights.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Keep tracking your expenses. Insights will show up here once there&apos;s enough data.

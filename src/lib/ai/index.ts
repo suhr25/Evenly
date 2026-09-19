@@ -5,12 +5,14 @@ import { NullAIProvider } from "@/lib/ai/providers/null";
 let cached: AIProvider | null = null;
 
 /**
- * Resolves the configured AI backend once per process.
+ * Resolves the configured AI backend.
  *
- * Falls back to NullAIProvider whenever no key is set, so AI-dependent
- * features degrade to an "unavailable" message instead of throwing. The
- * AIProvider interface keeps this swappable: adding another backend means
- * one new implementation and one branch here, nothing else changes.
+ * Only a real provider is cached. The null fallback is deliberately NOT
+ * cached: if the module is first evaluated before the environment is fully
+ * loaded (or the key is added while the process is running), caching the
+ * fallback would leave AI permanently "unavailable" until a restart, even
+ * though a valid key is sitting right there. Re-resolving on each call costs
+ * nothing and makes the degraded state self-healing.
  */
 export function getAIProvider(): AIProvider {
   if (cached) return cached;
@@ -19,14 +21,20 @@ export function getAIProvider(): AIProvider {
 
   if (providerName === "groq") {
     const apiKey = process.env.GROQ_API_KEY;
-    const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
-    const visionModel = process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b";
-    cached = apiKey ? new GroqProvider(apiKey, model, visionModel) : new NullAIProvider();
+    if (apiKey) {
+      cached = new GroqProvider(
+        apiKey,
+        process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+        process.env.GROQ_VISION_MODEL || "qwen/qwen3.6-27b"
+      );
+      return cached;
+    }
+    console.warn("[ai] GROQ_API_KEY is not set; AI features will report as unavailable.");
   } else {
-    cached = new NullAIProvider();
+    console.warn(`[ai] Unknown AI_PROVIDER "${providerName}"; expected "groq".`);
   }
 
-  return cached;
+  return new NullAIProvider();
 }
 
 export { AIUnavailableError } from "@/lib/ai/provider";

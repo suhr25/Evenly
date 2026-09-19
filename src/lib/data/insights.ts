@@ -2,7 +2,16 @@ import { AIUnavailableError, getAIProvider } from "@/lib/ai";
 import type { AIInsight, FinancialSnapshot } from "@/types/ai";
 import type { DashboardData } from "@/lib/data/dashboard";
 
-export type InsightResult = { available: true; insights: AIInsight[] } | { available: false };
+/**
+ * Three different situations used to collapse into a single "unavailable"
+ * state, which told the user the wrong thing twice over: a brand-new account
+ * has working AI and simply nothing to analyse yet, and a timed-out request is
+ * temporary rather than a missing feature. Only `not-configured` means the
+ * feature genuinely is not there.
+ */
+export type InsightResult =
+  | { available: true; insights: AIInsight[] }
+  | { available: false; reason: "no-data" | "not-configured" | "error" };
 
 export function toFinancialSnapshot(data: DashboardData): FinancialSnapshot {
   return {
@@ -22,7 +31,7 @@ export function toFinancialSnapshot(data: DashboardData): FinancialSnapshot {
 }
 
 export async function getDashboardInsights(data: DashboardData): Promise<InsightResult> {
-  if (!data.hasAnyData) return { available: false };
+  if (!data.hasAnyData) return { available: false, reason: "no-data" };
 
   try {
     const insights = await getAIProvider().generateInsight(toFinancialSnapshot(data));
@@ -33,9 +42,9 @@ export async function getDashboardInsights(data: DashboardData): Promise<Insight
     // else (a real API failure) is worth surfacing at error level.
     if (err instanceof AIUnavailableError) {
       console.info("[ai-insight] unavailable:", err.message);
-    } else {
-      console.error("[ai-insight]", err);
+      return { available: false, reason: "not-configured" };
     }
-    return { available: false };
+    console.error("[ai-insight]", err);
+    return { available: false, reason: "error" };
   }
 }

@@ -25,7 +25,16 @@ export class GroqProvider implements AIProvider {
   private visionModel: string;
 
   constructor(apiKey: string, model: string, visionModel: string) {
-    this.client = new OpenAI({ apiKey, baseURL: GROQ_BASE_URL });
+    // Groq rate-limits aggressively on the free tier and occasionally 5xxs.
+    // Retrying transient failures in the SDK is the difference between the
+    // dashboard showing real insights and showing "AI unavailable" because
+    // one request happened to land badly.
+    this.client = new OpenAI({
+      apiKey,
+      baseURL: GROQ_BASE_URL,
+      maxRetries: 3,
+      timeout: 30_000,
+    });
     this.model = model;
     this.visionModel = visionModel;
   }
