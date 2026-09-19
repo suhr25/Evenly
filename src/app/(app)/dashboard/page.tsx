@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { Wallet, TrendingUp, TrendingDown, PiggyBank, Sparkles } from "lucide-react";
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/session";
 import { getDashboardData } from "@/lib/data/dashboard";
 import { computeFinancialInsights } from "@/lib/data/financial-insights";
 import { computeCardInsights } from "@/lib/data/card-insights";
@@ -52,9 +51,7 @@ function AIInsightSkeleton() {
 }
 
 export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-
+  const session = await requireSession();
   const data = await getDashboardData(session.user.id);
   const [financialInsights, cardInsights] = await Promise.all([
     computeFinancialInsights(session.user.id, data.currency),

@@ -4,6 +4,9 @@ const PUBLIC_PATHS = [
   "/",
   "/login",
   "/signup",
+  // Reached while still holding a signed cookie, so it has to stay public or
+  // middleware would send the visitor back to the dashboard that rejected them.
+  "/session-expired",
   "/offline",
   "/manifest.webmanifest",
   "/sw.js",

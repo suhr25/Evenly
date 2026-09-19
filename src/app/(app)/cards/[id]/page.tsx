@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { requireSession } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { CardDetailClient } from "@/components/cards/card-detail-client";
 
 export const metadata: Metadata = { title: "Card details | Evenly" };
 
 export default async function CardDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-
+  const session = await requireSession();
   const { id } = await params;
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: session.user.id },
