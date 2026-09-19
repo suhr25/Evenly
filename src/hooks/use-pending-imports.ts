@@ -18,6 +18,8 @@ export interface ConfirmPendingImportInput {
   categoryId?: string | null;
   paymentMethod?: string | null;
   description?: string | null;
+  /** Books the expense into a group and splits it, instead of a solo expense. */
+  groupId?: string | null;
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -54,6 +56,7 @@ function useImportPropagation() {
       ["goals"],
       ["cards"],
       ["subscriptions"],
+      ["groups"],
     ]) {
       queryClient.invalidateQueries({ queryKey: key });
     }

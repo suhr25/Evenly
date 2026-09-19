@@ -6,6 +6,9 @@ export const confirmPendingImportSchema = z.object({
   categoryId: z.string().min(1).nullish(),
   paymentMethod: z.enum(PAYMENT_METHODS).nullish(),
   description: z.string().trim().min(1).max(200).nullish(),
+  // When set, the transaction is booked as a shared group expense instead of
+  // a solo one. Only meaningful for `as: "expense"`.
+  groupId: z.string().min(1).nullish(),
 });
 
 export type ConfirmPendingImportInput = z.infer<typeof confirmPendingImportSchema>;

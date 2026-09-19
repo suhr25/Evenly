@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronDown, Inbox, Loader2, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, Inbox, Loader2, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { formatMoney } from "@/lib/money";
 import { useCategories } from "@/hooks/use-categories";
+import { useGroups } from "@/hooks/use-groups";
 import {
   useConfirmAllPendingImports,
   useConfirmPendingImport,
@@ -30,7 +31,9 @@ import {
 
 function PendingImportRow({ item, currency }: { item: PendingImportDTO; currency: string }) {
   const { data: categories } = useCategories();
+  const { data: groups } = useGroups();
   const [categoryId, setCategoryId] = useState("");
+  const [groupId, setGroupId] = useState("");
   const confirm = useConfirmPendingImport();
   const dismiss = useDismissPendingImport();
   const isDebit = item.direction === "DEBIT";
@@ -41,9 +44,18 @@ function PendingImportRow({ item, currency }: { item: PendingImportDTO; currency
         id: item.id,
         // No category picked just means "Other". Never a reason to block
         // the import; the expense stays editable afterwards.
-        input: isDebit ? { as: "expense", categoryId: categoryId || null } : { as: "income" },
+        input: isDebit
+          ? { as: "expense", categoryId: categoryId || null, groupId: groupId || null }
+          : { as: "income" },
       });
-      toast.success(isDebit ? "Added to Money Flow as an expense" : "Added to Money Flow as income");
+      const groupName = groups?.find((g) => g.id === groupId)?.name;
+      toast.success(
+        !isDebit
+          ? "Added to Money Flow as income"
+          : groupName
+            ? `Split in ${groupName}. Your share is in Money Flow.`
+            : "Added to Money Flow as an expense"
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to confirm");
     }
@@ -83,22 +95,48 @@ function PendingImportRow({ item, currency }: { item: PendingImportDTO; currency
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {isDebit && (
-          <Select
-            items={Object.fromEntries((categories ?? []).map((c) => [c.id, c.name]))}
-            value={categoryId}
-            onValueChange={(v) => setCategoryId(v ?? "")}
-          >
-            <SelectTrigger className="h-8 w-36 text-xs">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories?.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <>
+            <Select
+              items={Object.fromEntries((categories ?? []).map((c) => [c.id, c.name]))}
+              value={categoryId}
+              onValueChange={(v) => setCategoryId(v ?? "")}
+            >
+              <SelectTrigger className="h-8 w-32 text-xs">
+                <SelectValue placeholder="Auto" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {groups && groups.length > 0 && (
+              <Select
+                items={{
+                  "": "Just me",
+                  ...Object.fromEntries(groups.map((g) => [g.id, g.name])),
+                }}
+                value={groupId}
+                onValueChange={(v) => setGroupId(v ?? "")}
+              >
+                <SelectTrigger className="h-8 w-32 text-xs">
+                  <SelectValue placeholder="Just me" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Just me</SelectItem>
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      <Users className="size-3" aria-hidden />
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </>
         )}
         <Button
           size="icon-sm"
