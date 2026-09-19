@@ -18,7 +18,11 @@ export interface MonthBudgetSummary {
   isCurrentMonth: boolean;
   daysRemaining: number | null;
   totalBudgeted: string;
+  /** Spend across every category, budgeted or not. */
   totalSpent: string;
+  /** Spend confined to categories that have a limit; the only figure
+      comparable to totalBudgeted. */
+  trackedSpent: string;
   items: BudgetLineItem[];
 }
 

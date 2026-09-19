@@ -20,7 +20,15 @@ export interface MonthBudgetSummary {
   isCurrentMonth: boolean;
   daysRemaining: number | null;
   totalBudgeted: string;
+  /** Spend across every category, budgeted or not. */
   totalSpent: string;
+  /**
+   * Spend confined to the categories that actually have a limit set. This is
+   * the only figure it is meaningful to compare against totalBudgeted:
+   * totalSpent includes categories the user never budgeted, so pitting it
+   * against a partial budget reports an overspend that does not exist.
+   */
+  trackedSpent: string;
   items: BudgetLineItem[];
 }
 
@@ -84,6 +92,10 @@ export async function getMonthBudgetSummary(userId: string, periodStart: Date): 
 
   const totalBudgeted = budgets.reduce((sum, b) => sum.plus(toMoney(b.amount.toString())), toMoney(0));
   const totalSpent = items.reduce((sum, i) => sum.plus(toMoney(i.spent)), toMoney(0));
+  const trackedSpent = items.reduce(
+    (sum, i) => (i.amount === null ? sum : sum.plus(toMoney(i.spent))),
+    toMoney(0)
+  );
 
   return {
     periodStart: periodStart.toISOString(),
@@ -91,6 +103,7 @@ export async function getMonthBudgetSummary(userId: string, periodStart: Date): 
     daysRemaining: isCurrentMonth ? Math.max(0, differenceInCalendarDays(periodEnd, now)) : null,
     totalBudgeted: totalBudgeted.toString(),
     totalSpent: totalSpent.toString(),
+    trackedSpent: trackedSpent.toString(),
     items: items.sort((a, b) => {
       // Budgets set first, then by highest usage, then alphabetically.
       if (Boolean(a.amount) !== Boolean(b.amount)) return a.amount ? -1 : 1;
