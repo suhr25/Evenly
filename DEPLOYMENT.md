@@ -75,6 +75,44 @@ and no CA is available, rather than falling back to an unverified connection.
 An unverified TLS connection is encrypted but authenticates nothing, which is
 no defence against anything sitting between the app and the database.
 
+## Dependency install on the build image
+
+`amplify.yml` runs `npm install`, not `npm ci`, and that is a deliberate
+concession rather than a preference.
+
+The lockfile is generated on Windows. npm records only the optional platform
+packages that apply to the machine that wrote it, and it will not record the
+dependencies of an optional package it cannot install locally. Three packages
+here pull in wasm fallbacks (`@img/sharp-wasm32`, `@napi-rs/wasm-runtime`,
+`@tailwindcss/oxide-wasm32-wasi`) that depend on `@emnapi/core` and
+`@emnapi/runtime`. Neither has an entry in the lockfile, while
+`@napi-rs/wasm-runtime`, which requires them, does. On Linux `npm ci` follows
+that dangling edge and fails.
+
+It cannot be repaired from a Windows checkout: `npm install --package-lock-only`
+leaves both out, and so does the same command with `--os=linux --cpu=x64
+--libc=glibc`.
+
+The cost is that builds are no longer reproducible from the lockfile alone.
+npm resolves against the registry at build time, so a dependency can arrive at
+a newer version than the one that was tested, constrained only by the ranges in
+package.json.
+
+To get `npm ci` back, generate the lockfile on Linux and commit it:
+
+```bash
+docker run --rm -v "$PWD":/app -w /app node:22 npm install --package-lock-only
+```
+
+Then change the `preBuild` command back to `npm ci`. Worth doing before this
+carries anything that matters; a build that silently picks up a new minor
+version of a dependency is a bad thing to debug later.
+
+Related: Amplify's default Node image may ship an npm older than the one used
+locally (11.x). Pinning the build image to Node 22 or newer, via the
+`_CUSTOM_IMAGE` environment variable or Amplify's Node version setting, keeps
+install behaviour consistent with development.
+
 ## Migrations
 
 **The build does not run migrations, on purpose.** Amplify builds can run

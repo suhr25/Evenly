@@ -18,10 +18,30 @@ frontend:
   phases:
     preBuild:
       commands:
-        # `npm ci` rather than `npm install`: it installs exactly what the
-        # lockfile pins, so a deployed build cannot silently pick up a
-        # different dependency version than the one that was tested.
-        - npm ci
+        # `npm install`, not `npm ci`, and not by preference.
+        #
+        # The lockfile is generated on Windows and npm records only the
+        # optional platform packages that apply to the machine that wrote it.
+        # Three packages here pull in wasm fallbacks (@img/sharp-wasm32,
+        # @napi-rs/wasm-runtime, @tailwindcss/oxide-wasm32-wasi) that depend on
+        # @emnapi/core and @emnapi/runtime, and those two have no entry in the
+        # lockfile at all, while @napi-rs/wasm-runtime, which requires them,
+        # does. On Linux `npm ci` walks that dangling edge and refuses to
+        # install.
+        #
+        # This is not fixable from here: `npm install --package-lock-only`,
+        # with and without --os=linux --cpu=x64, still prunes both packages,
+        # because npm will not record dependencies of an optional package it
+        # cannot install locally. `npm install` resolves the tree against the
+        # registry at build time instead of trusting a lockfile written for
+        # another platform, so the Linux binaries it needs are found.
+        #
+        # What this costs: npm may resolve a dependency to a newer version
+        # than the lockfile pins, so builds are no longer bit-for-bit
+        # reproducible. Ranges in package.json are the only thing constraining
+        # them. Committing a lockfile generated on Linux (in CI, or a
+        # container) would allow `npm ci` to come back; see DEPLOYMENT.md.
+        - npm install --no-audit --no-fund
     build:
       commands:
         - npx prisma generate
