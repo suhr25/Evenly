@@ -7,9 +7,18 @@ import { authConfig } from "@/lib/auth.config";
 import { prisma } from "@/lib/prisma";
 import { loginSchema } from "@/lib/validations/auth";
 
-export const isGoogleAuthEnabled = Boolean(
-  process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
-);
+/**
+ * Whether Google sign-in is configured.
+ *
+ * A function rather than a constant, because a constant is evaluated once when
+ * this module is first imported. On managed hosting the environment is not
+ * necessarily populated at that moment, and a value captured too early is
+ * wrong for the life of the process: the button disappears from the login page
+ * even though the credentials are configured.
+ */
+export function isGoogleAuthEnabled(): boolean {
+  return Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET);
+}
 
 const providers: NextAuthConfig["providers"] = [
   Credentials({
@@ -40,7 +49,7 @@ const providers: NextAuthConfig["providers"] = [
   }),
 ];
 
-if (isGoogleAuthEnabled) {
+if (isGoogleAuthEnabled()) {
   providers.unshift(Google);
 }
 
