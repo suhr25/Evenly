@@ -50,6 +50,15 @@ frontend:
     baseDirectory: .next
     files:
       - "**/*"
+      # Excluded, not merely large: this is Turbopack's incremental build
+      # cache, restored here from `cache.paths` below before the build runs
+      # and left on disk afterward. It speeds up the next build and is never
+      # read at runtime, so shipping it only inflates the deployment package,
+      # and it does so unpredictably: its size grows with accumulated
+      # incremental state, which is what pushed one build over Amplify's
+      # 230MB artifact limit while a fresh build might not have. Paths here
+      # are relative to baseDirectory, so this is `.next/cache`.
+      - "!cache/**/*"
   cache:
     paths:
       - node_modules/**/*
