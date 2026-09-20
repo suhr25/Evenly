@@ -46,7 +46,7 @@ const RULES: ReadonlyArray<{ category: CategoryName; pattern: RegExp }> = [
   {
     category: "Food",
     pattern:
-      /\b(swiggy|zomato|eatsure|faasos|behrouz|ovenstory|domino'?s|dominos|pizza\s*hut|mcdonald|kfc|burger\s*king|subway|starbucks|cafe|caf[eé]|coffee|chai|restaurant|resto|dhaba|biryani|bakery|sweets|juice|barbeque|bbq|samosa|chaat|nukkad|bhavan|udupi|darshini|food|kitchen|eats|snack|tiffin|mess|canteen|brew|brews|foods)\b/i,
+      /\b(swiggy|zomato|eatsure|faasos|behrouz|ovenstory|domino'?s|dominos|pizza\s*hut|mcdonald|kfc|burger\s*king|subway|starbucks|costa|cafe|caf[eé]|coffee|chai|restaurant|resto|dhaba|biryani|bakery|sweets|juice|barbeque|bbq|samosa|chaat|nukkad|bhavan|udupi|darshini|food|kitchen|eats|snack|tiffin|mess|canteen|brew|brews|foods|swish|munchmart|indori|rolls?|momos?|paratha|idli|dosa|thali|kulfi|icecream|ice\s*cream|baskin|naturals)\b/i,
   },
   {
     category: "Travel",
@@ -86,7 +86,7 @@ const RULES: ReadonlyArray<{ category: CategoryName; pattern: RegExp }> = [
   {
     category: "Shopping",
     pattern:
-      /\b(amazon|flipkart|myntra|ajio|meesho|nykaa|tatacliq|tata\s*cliq|snapdeal|shopsy|decathlon|lifestyle|pantaloons|westside|zara|uniqlo|croma|reliance\s*digital|vijay\s*sales|ikea|home\s*centre|urban\s*ladder|pepperfry|store|mart|retail|enterprises|traders|appliance|electronics|boutique|fashion|apparel|footwear)\b/i,
+      /\b(amazon|flipkart|myntra|ajio|meesho|nykaa|tatacliq|tata\s*cliq|snapdeal|shopsy|decathlon|lifestyle|pantaloons|westside|zara|uniqlo|croma|reliance\s*digital|vijay\s*sales|ikea|home\s*centre|urban\s*ladder|pepperfry|mr\s*diy|health\s*(and|&)\s*glow|store|mart|retail|enterprises|traders|appliance|electronics|boutique|fashion|apparel|footwear)\b/i,
   },
 ];
 
