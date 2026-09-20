@@ -46,8 +46,21 @@ export function getBaseUrl(): string {
  * Checks the variables a deployed server cannot run correctly without, and
  * reports all of the missing ones at once rather than one per restart.
  *
- * Called for its side effect of throwing. Does nothing outside production, so
- * local development keeps working with a partial .env.
+ * Reports rather than throws, deliberately. Throwing here aborted the
+ * instrumentation hook, which aborted server startup, which turned every route
+ * into a bare 500 with no page and nothing on it: a single missing variable
+ * became a total outage whose only explanation sat in a platform log someone
+ * had to go and correlate by hand.
+ *
+ * Each of these already fails clearly where it is used. Auth.js refuses to
+ * sign anything without AUTH_SECRET, Prisma cannot connect without
+ * DATABASE_URL, getStorageProvider rejects local storage in production. Those
+ * failures stay confined to the features that need them, so the rest of the
+ * site stays up and the error names itself at the point it matters.
+ *
+ * What is kept is the summary: one line at boot naming what arrived and what
+ * did not, which is what makes a misconfigured deployment diagnosable at all.
+ * Does nothing outside production.
  */
 export function assertProductionEnv(): void {
   if (!isProduction()) return;
@@ -91,9 +104,33 @@ export function assertProductionEnv(): void {
     );
   }
 
+  // Names only, never values: this goes to the platform log, and knowing which
+  // variables reached the runtime is the whole point of it.
+  const seen = REPORTED_VARS.filter((name) => Boolean(process.env[name]));
+  const unseen = REPORTED_VARS.filter((name) => !process.env[name]);
+  console.info(`[env] present at runtime: ${seen.join(", ") || "(none)"}`);
+  console.info(`[env] absent at runtime:  ${unseen.join(", ") || "(none)"}`);
+
   if (problems.length > 0) {
-    throw new Error(
-      `Cannot start: this deployment is misconfigured.\n  - ${problems.join("\n  - ")}`
+    console.error(
+      "[env] This deployment is misconfigured. The server will start, but the " +
+        "features that need these will fail:\n  - " +
+        problems.join("\n  - ")
     );
   }
 }
+
+/** Reported at boot so a deployment's real environment is visible in the log. */
+const REPORTED_VARS = [
+  "DATABASE_URL",
+  "AUTH_SECRET",
+  "AUTH_URL",
+  "AUTH_GOOGLE_ID",
+  "AUTH_GOOGLE_SECRET",
+  "GROQ_API_KEY",
+  "STORAGE_PROVIDER",
+  "S3_BUCKET",
+  "S3_REGION",
+  "S3_ACCESS_KEY_ID",
+  "S3_SECRET_ACCESS_KEY",
+];
