@@ -16,7 +16,21 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // Auth.js redirects a failed sign-in back here with ?error=<code>. Only a
+  // few codes tell the reader anything useful; the rest mean "that attempt did
+  // not complete", which is almost always an OAuth round trip that expired or
+  // was retried from a stale tab.
+  const signInError = (() => {
+    const code = searchParams.get("error");
+    if (!code) return null;
+    if (code === "OAuthAccountNotLinked") {
+      return "That email is already registered with a password. Log in with your password instead.";
+    }
+    if (code === "AccessDenied") return "Access was denied. Try again, or use a different account.";
+    return "That sign-in did not complete. Please try again.";
+  })();
+
+  const [error, setError] = useState<string | null>(signInError);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 

@@ -25,6 +25,17 @@ const PUBLIC_PATHS = [
 export const authConfig = {
   pages: {
     signIn: "/login",
+    /*
+     * Auth.js's own error page is not worth showing anyone. It maps most
+     * failures, including an expired OAuth attempt, to "Configuration" and
+     * announces "There is a problem with the server configuration", which
+     * sends the reader looking for a broken setting when the usual cause is a
+     * sign-in that simply took too long or was retried from an old tab.
+     * Failures come back to the login form instead, which can say something
+     * true and offer the obvious next step. The real detail stays in the
+     * server log, where it belongs.
+     */
+    error: "/login",
   },
   session: { strategy: "jwt" },
   providers: [],
