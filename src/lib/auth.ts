@@ -71,12 +71,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       if (typeof token.id !== "string") return null;
 
-      const stillExists = await prisma.user.findUnique({
-        where: { id: token.id },
-        select: { id: true },
-      });
-      // Returning null clears the session cookie and sends them to sign in.
-      return stillExists ? token : null;
+      try {
+        const stillExists = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: { id: true },
+        });
+        // Returning null clears the session cookie and sends them to sign in.
+        return stillExists ? token : null;
+      } catch (err) {
+        // A failed lookup is not the same as a user that does not exist. If
+        // the database is unreachable this query throws, and treating that as
+        // "the account is gone" would sign everybody out over a brief outage,
+        // or surface as an Auth.js configuration error, which it is not. Keep
+        // the session and let the page report the real problem.
+        console.error("[auth] could not verify the session user:", err);
+        return token;
+      }
     },
     async session({ session, token }) {
       if (session.user && typeof token.id === "string") {

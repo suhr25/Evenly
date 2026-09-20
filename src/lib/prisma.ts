@@ -57,7 +57,21 @@ function sslConfig() {
   return { rejectUnauthorized: false as const };
 }
 
-const adapter = new PrismaPg({ connectionString, ssl: sslConfig() });
+const adapter = new PrismaPg({
+  connectionString,
+  ssl: sslConfig(),
+  /*
+   * Without these, an unreachable database does not fail: it hangs. The
+   * request sits on the socket until something upstream gives up, which turns
+   * a network problem into a page that never responds and, on the auth
+   * routes, into an error that reads as a misconfiguration. Better to fail in
+   * a few seconds with a real error than to stall.
+   */
+  connectionTimeoutMillis: 8_000,
+  query_timeout: 20_000,
+  statement_timeout: 20_000,
+  idleTimeoutMillis: 30_000,
+});
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
 
