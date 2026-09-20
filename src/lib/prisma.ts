@@ -53,8 +53,30 @@ const wantsSsl = /sslmode=(require|verify-ca|verify-full)/.test(rawConnectionStr
 // sslmode is handled here via the ssl option instead, for the reason above.
 const connectionString = rawConnectionString.replace(/([?&])sslmode=[^&]*&?/, "$1").replace(/[?&]$/, "");
 
+/**
+ * Whether the database is Amazon RDS, which decides where trust comes from.
+ *
+ * RDS presents a certificate signed by an Amazon root that is not in Node's
+ * default trust store, so it needs the bundle below. Every other managed
+ * Postgres worth using chains to a public root instead, and handing those the
+ * Amazon bundle would reject a perfectly valid certificate. Getting this wrong
+ * is not a soft failure: it looks exactly like the database being unreachable.
+ */
+function isAmazonRdsHost(url: string): boolean {
+  try {
+    return new URL(url).hostname.endsWith(".rds.amazonaws.com");
+  } catch {
+    return false;
+  }
+}
+
 function sslConfig() {
   if (!wantsSsl) return undefined;
+
+  // Public CA: verified against Node's own trust store, nothing to supply.
+  if (!isAmazonRdsHost(rawConnectionString)) {
+    return { rejectUnauthorized: true as const };
+  }
 
   const ca = loadCaCert();
   if (ca) return { ca, rejectUnauthorized: true as const };
