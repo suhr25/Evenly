@@ -71,15 +71,23 @@ export function assertProductionEnv(): void {
     problems.push("AUTH_URL is not set. It must be this deployment's public origin.");
   }
 
-  // Storage defaults to the local filesystem, which does not survive on
-  // serverless hosting: the directory is read-only outside /tmp, and /tmp is
-  // discarded between invocations. Uploads would appear to succeed and then
-  // vanish, which is worse than refusing to start.
+  // Storage is warned about rather than fatal, unlike the variables above.
+  //
+  // The local provider cannot persist on serverless hosting: the filesystem is
+  // read-only outside /tmp and /tmp is discarded between invocations. But
+  // getStorageProvider() already refuses to hand back the local provider in
+  // production, so an upload fails loudly at the point it is attempted.
+  // Repeating that check here only widened the blast radius, taking the whole
+  // deployment down at boot over a feature that nothing else depends on:
+  // budgets, groups, sign-in and every other page work perfectly well without
+  // receipt uploads. A misconfigured optional feature should disable that
+  // feature, not the application.
   if ((process.env.STORAGE_PROVIDER ?? "local") === "local") {
-    problems.push(
-      "STORAGE_PROVIDER is 'local', which writes to a filesystem that managed " +
-        "hosting does not persist. Set it to 's3' and supply S3_BUCKET, " +
-        "S3_REGION, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY."
+    console.warn(
+      "[env] STORAGE_PROVIDER is 'local', which managed hosting does not " +
+        "persist. Receipt and file uploads will fail until STORAGE_PROVIDER " +
+        "is set to 's3' with S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID and " +
+        "S3_SECRET_ACCESS_KEY. Everything else runs normally."
     );
   }
 

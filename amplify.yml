@@ -54,20 +54,15 @@ frontend:
         # writing the values there during the build is the supported way to
         # carry them across.
         #
-        # `env | grep` rather than an echo per variable: the command text
-        # holds no secret, and its output is redirected to a file, so no value
-        # is ever written to the build log. The patterns are anchored with ^
-        # and = so DATABASE_URL cannot also match something like
-        # DATABASE_URL_REPLICA.
+        # A script rather than `env | grep`, which this replaces. The grep
+        # wrote values unquoted, so a `#` anywhere in one truncated it into a
+        # comment, and it reported only the names it found: a variable absent
+        # from the build container looked exactly like one whose file never
+        # reached the runtime, though the two are fixed in different places.
+        # The script single-quotes values and names the missing ones.
         #
-        # DATABASE_CA_CERT is deliberately absent. A PEM is multi-line and
-        # would corrupt the flat key=value format; the certificate is
-        # committed at prisma/rds-ca-us-east-1.pem instead.
-        - env | grep -E '^(DATABASE_URL|AUTH_SECRET|AUTH_URL|AUTH_GOOGLE_ID|AUTH_GOOGLE_SECRET|AI_PROVIDER|GROQ_API_KEY|GROQ_MODEL|GROQ_VISION_MODEL|STORAGE_PROVIDER|S3_BUCKET|S3_REGION|S3_ENDPOINT|S3_ACCESS_KEY_ID|S3_SECRET_ACCESS_KEY)=' >> .env.production || true
-        # Names only, never values: confirms in the build log which variables
-        # actually made it across, which is the first thing worth knowing when
-        # the runtime reports one missing.
-        - echo "Wrote to .env.production:" && (cut -d= -f1 .env.production 2>/dev/null | sort || echo "  none matched - check the Amplify console")
+        # It prints names only, never values.
+        - node scripts/write-env-production.mjs
         - npx prisma generate
         - npm run build
   artifacts:
