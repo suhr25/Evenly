@@ -27,6 +27,17 @@ export function getStorageProvider(): StorageProvider {
       secretAccessKey,
     });
   } else {
+    // The local provider writes under process.cwd(), which on serverless
+    // hosting is read-only outside /tmp, and /tmp does not survive between
+    // invocations. Refusing here is better than accepting an upload, telling
+    // the user it worked, and losing the file.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "STORAGE_PROVIDER is 'local', which cannot persist files in production. " +
+          "Set STORAGE_PROVIDER=s3 and supply S3_BUCKET, S3_REGION, " +
+          "S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY."
+      );
+    }
     cached = new LocalStorageProvider();
   }
   return cached;

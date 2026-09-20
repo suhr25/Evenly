@@ -23,6 +23,14 @@
 # misc
 .DS_Store
 *.pem
+# The RDS CA bundles are public certificates, not secrets, and the server needs
+# them at runtime to verify the database's TLS certificate. They must ship with
+# the deployment: the app refuses to connect to production unverified, and the
+# bundle is far too large to pass as an environment variable.
+!prisma/rds-ca-*.pem
+# ...except the 165KB all-regions bundle, which is only useful locally. The
+# region certificate above is the one the deployment needs.
+prisma/rds-ca-bundle.pem
 
 # debug
 npm-debug.log*

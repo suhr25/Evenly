@@ -25,12 +25,26 @@ const rawConnectionString = process.env.DATABASE_URL ?? "";
  * man-in-the-middle sitting between the app and the database. For financial
  * data that is not an acceptable default.
  */
+/**
+ * Certificate file names tried in order, relative to the project root.
+ *
+ * The region bundle is committed because the deployed server has to verify
+ * RDS's certificate and has nowhere else to get one: these are public
+ * certificates rather than secrets, and the global bundle is far too large to
+ * pass through an environment variable (Lambda allows 4KB for all of them
+ * together). The global bundle is still honoured when present, for anyone
+ * running against a different region.
+ */
+const CA_BUNDLE_FILES = ["rds-ca-us-east-1.pem", "rds-ca-bundle.pem"];
+
 function loadCaCert(): string | undefined {
   const inline = process.env.DATABASE_CA_CERT;
   if (inline && inline.includes("BEGIN CERTIFICATE")) return inline;
 
-  const bundlePath = path.join(process.cwd(), "prisma", "rds-ca-bundle.pem");
-  if (fs.existsSync(bundlePath)) return fs.readFileSync(bundlePath, "utf8");
+  for (const file of CA_BUNDLE_FILES) {
+    const bundlePath = path.join(process.cwd(), "prisma", file);
+    if (fs.existsSync(bundlePath)) return fs.readFileSync(bundlePath, "utf8");
+  }
 
   return undefined;
 }
@@ -48,7 +62,7 @@ function sslConfig() {
   if (process.env.NODE_ENV === "production") {
     throw new Error(
       "DATABASE_URL requests SSL but no CA certificate is available. Set " +
-        "DATABASE_CA_CERT or provide prisma/rds-ca-bundle.pem. Refusing to " +
+        "DATABASE_CA_CERT or commit prisma/rds-ca-us-east-1.pem. Refusing to " +
         "connect to a production database without verifying its certificate."
     );
   }

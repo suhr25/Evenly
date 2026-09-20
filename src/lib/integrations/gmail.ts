@@ -1,4 +1,5 @@
 import { google, type gmail_v1 } from "googleapis";
+import { getBaseUrl } from "@/lib/env";
 
 // Reuses the same Google Cloud OAuth client already configured for
 // "Sign in with Google" (AUTH_GOOGLE_ID/AUTH_GOOGLE_SECRET). This is a
@@ -20,15 +21,11 @@ export class GmailNotConfiguredError extends Error {
   }
 }
 
-function baseUrl(): string {
-  return process.env.AUTH_URL ?? "http://localhost:3000";
-}
-
 function createOAuthClient() {
   const clientId = process.env.AUTH_GOOGLE_ID;
   const clientSecret = process.env.AUTH_GOOGLE_SECRET;
   if (!clientId || !clientSecret) throw new GmailNotConfiguredError();
-  return new google.auth.OAuth2(clientId, clientSecret, `${baseUrl()}${GMAIL_CALLBACK_PATH}`);
+  return new google.auth.OAuth2(clientId, clientSecret, `${getBaseUrl()}${GMAIL_CALLBACK_PATH}`);
 }
 
 export function getGmailAuthUrl(state: string): string {

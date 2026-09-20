@@ -1,0 +1,36 @@
+# AWS Amplify Hosting build settings.
+#
+# Deliberately minimal: Amplify detects Next.js and provisions SSR itself, so
+# this file exists for one reason the default cannot cover. The Prisma Client
+# is generated code that is not committed (prisma/schema.prisma is the source
+# of truth, src/generated/prisma is build output), and roughly twenty modules
+# import it. Without `prisma generate` the build fails at the first such
+# import. The postinstall script in package.json covers this too; it is
+# repeated here so the build does not depend on install hooks running.
+#
+# No `output: export` and no static settings: the app needs SSR for route
+# handlers, server components and Auth.js.
+#
+# Migrations are deliberately NOT run here. See DEPLOYMENT.md for why and for
+# the procedure to apply them.
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        # `npm ci` rather than `npm install`: it installs exactly what the
+        # lockfile pins, so a deployed build cannot silently pick up a
+        # different dependency version than the one that was tested.
+        - npm ci
+    build:
+      commands:
+        - npx prisma generate
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - "**/*"
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
