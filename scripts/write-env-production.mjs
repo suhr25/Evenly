@@ -22,7 +22,18 @@
  *
  * Values are never printed. Names only.
  */
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import path from "node:path";
+
+// Where to write. The repo root is what Next reads when it constructs the
+// server. The .next copy exists because the Amplify artifact is the .next
+// directory, so a file beside it is not necessarily part of what ships;
+// instrumentation loads that copy explicitly. Pass --into-next after the
+// build, once .next exists.
+const INTO_NEXT = process.argv.includes("--into-next");
+const OUT_DIR = INTO_NEXT ? ".next" : ".";
+const OUT_FILE = path.join(OUT_DIR, ".env.production");
+const NL = String.fromCharCode(10);
 
 /** Without these the server cannot start; see assertProductionEnv. */
 const REQUIRED = ["DATABASE_URL", "AUTH_SECRET", "AUTH_URL"];
@@ -64,11 +75,14 @@ for (const name of [...REQUIRED, ...OPTIONAL]) {
   written.push(name);
 }
 
-if (lines.length > 0) appendFileSync(".env.production", lines.join("\n") + "\n");
+if (lines.length > 0) {
+  if (INTO_NEXT && !existsSync(OUT_DIR)) mkdirSync(OUT_DIR, { recursive: true });
+  appendFileSync(OUT_FILE, lines.join(NL) + NL);
+}
 
 const missingRequired = missing.filter((n) => REQUIRED.includes(n));
 
-console.log(`Wrote ${written.length} variable(s) to .env.production.`);
+console.log(`Wrote ${written.length} variable(s) to ${OUT_FILE}.`);
 console.log(`  present: ${written.join(", ") || "(none)"}`);
 console.log(`  absent from the build container: ${missing.join(", ") || "(none)"}`);
 

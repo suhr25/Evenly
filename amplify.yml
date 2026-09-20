@@ -65,6 +65,13 @@ frontend:
         - node scripts/write-env-production.mjs
         - npx prisma generate
         - npm run build
+        # Again, into .next this time, because that directory is the artifact.
+        # The root copy above is what the build itself reads and is what Next
+        # looks for when it constructs the server; whether it ships depends on
+        # how Amplify assembles the compute bundle. A copy inside .next is
+        # unambiguously part of the artifact, and src/instrumentation.ts loads
+        # it from there. Runs after the build because next build rewrites .next.
+        - node scripts/write-env-production.mjs --into-next
   artifacts:
     baseDirectory: .next
     files:
