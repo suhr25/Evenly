@@ -50,6 +50,13 @@ const OPTIONAL = [
   "S3_ENDPOINT",
   "S3_ACCESS_KEY_ID",
   "S3_SECRET_ACCESS_KEY",
+  // PayPal Sandbox demo. The server reads all of these (including the client ID).
+  "NEXT_PUBLIC_PAYPAL_CLIENT_ID",
+  "PAYPAL_CLIENT_SECRET",
+  "PAYPAL_MERCHANT_ID",
+  "PAYPAL_BASE_URL",
+  "PAYPAL_CHARGE_CURRENCY",
+  "PAYPAL_DEMO_EXCHANGE_RATE",
 ];
 
 const collected = {};

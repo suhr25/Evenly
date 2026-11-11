@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, Loader2, MessageCircle, Sparkles, Wallet } from "lucide-react";
+import { ArrowRight, Check, CreditCard, Loader2, MessageCircle, Sparkles, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import {
   Tooltip,
@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { PayPalCheckoutDialog } from "@/components/groups/paypal-checkout-dialog";
 import { formatMoney } from "@/lib/money";
 import { buildUpiPayLink, buildWhatsAppLink } from "@/lib/payment-links";
 import { useRecordSettlement } from "@/hooks/use-settlements";
@@ -48,6 +49,8 @@ export function SuggestedSettlements({
 }: SuggestedSettlementsProps) {
   const recordSettlement = useRecordSettlement(groupId);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [paypalFor, setPaypalFor] = useState<SuggestedSettlement | null>(null);
+  const paypalEnabled = Boolean(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID);
 
   if (suggestions.length === 0) {
     return null;
@@ -130,6 +133,13 @@ export function SuggestedSettlements({
                   </Button>
                 ))}
 
+                {youOwe && paypalEnabled && (
+                  <Button variant="outline" size="sm" onClick={() => setPaypalFor(s)}>
+                    <CreditCard className="size-3.5" aria-hidden />
+                    Pay with PayPal
+                  </Button>
+                )}
+
                 <Button variant="outline" size="sm" onClick={() => markPaid(s)} disabled={isMarking}>
                   {isMarking ? (
                     <Loader2 className="size-3.5 animate-spin" aria-hidden />
@@ -143,6 +153,9 @@ export function SuggestedSettlements({
           );
         })}
       </ul>
+      {paypalFor && (
+        <PayPalCheckoutDialog groupId={groupId} suggestion={paypalFor} onClose={() => setPaypalFor(null)} />
+      )}
     </div>
   );
 }

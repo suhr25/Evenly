@@ -33,6 +33,8 @@ Optional:
 | `GROQ_API_KEY` | Without it the AI features report themselves unavailable and everything else keeps working. |
 | `GROQ_MODEL`, `GROQ_VISION_MODEL` | Sensible defaults are compiled in. |
 | `S3_ENDPOINT` | Only for S3-compatible services that are not AWS S3. |
+| `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_MERCHANT_ID`, `PAYPAL_DEMO_EXCHANGE_RATE` | PayPal Sandbox demo (see README). Without them the "Pay with PayPal" button is hidden or reports PayPal as not configured. The client ID is inlined into the browser bundle at build time, so it must be set before the build runs. Sandbox credentials only. |
+| `PAYPAL_BASE_URL`, `PAYPAL_CHARGE_CURRENCY` | Default to `https://api-m.sandbox.paypal.com` and `USD`. Any other base URL is rejected. |
 | `DATABASE_CA_CERT` | Not needed. The region CA is committed at `prisma/rds-ca-us-east-1.pem`. See below. |
 
 `AUTH_URL` does more than it looks like it does. Auth.js builds its callback

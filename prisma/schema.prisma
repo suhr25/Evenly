@@ -22,20 +22,20 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts         Account[]
-  sessions         Session[]
-  categories       ExpenseCategory[]
-  expenses         Expense[]
-  incomes          Income[]
-  budgets          Budget[]
-  createdGroups    Group[]
-  groupMemberships GroupMember[]
-  savingsGoals     SavingsGoal[]
-  aiConversations  AIConversation[]
-  receipts         Receipt[]
-  subscriptions    Subscription[]
-  sentInvites      GroupInvite[]
-  userCards        UserCard[]
+  accounts             Account[]
+  sessions             Session[]
+  categories           ExpenseCategory[]
+  expenses             Expense[]
+  incomes              Income[]
+  budgets              Budget[]
+  createdGroups        Group[]
+  groupMemberships     GroupMember[]
+  savingsGoals         SavingsGoal[]
+  aiConversations      AIConversation[]
+  receipts             Receipt[]
+  subscriptions        Subscription[]
+  sentInvites          GroupInvite[]
+  userCards            UserCard[]
   gmailConnection      GmailConnection?
   importedTransactions ImportedTransaction[]
 }
@@ -193,11 +193,12 @@ model Group {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  creator     User           @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  members     GroupMember[]
-  expenses    GroupExpense[]
-  settlements Settlement[]
-  invites     GroupInvite[]
+  creator        User            @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  members        GroupMember[]
+  expenses       GroupExpense[]
+  settlements    Settlement[]
+  invites        GroupInvite[]
+  paypalPayments PayPalPayment[]
 
   @@index([createdBy])
 }
@@ -301,7 +302,62 @@ model Settlement {
   // shows up as income, since that money was never counted as personal spend to begin with.
   syncedIncome Income?
 
+  paypalPayment PayPalPayment?
+
   @@index([groupId])
+}
+
+// ---------- PayPal Sandbox demo checkout ----------
+// One row per attempt to pay a suggested settlement through PayPal Sandbox.
+// This is a payment to the configured sandbox MERCHANT, not a transfer to the other
+// group member. The row is the reconciliation record: it holds both the original
+// (group currency) and charged (PayPal currency) amounts, the PayPal order and capture
+// ids, and the settlement it produced.
+
+enum PayPalPaymentStatus {
+  INITIATED // row exists, PayPal order not yet created/stored
+  ORDER_CREATED // order exists, awaiting buyer approval
+  CAPTURE_PENDING // PayPal accepted the capture but it has not completed yet
+  CAPTURED // PayPal capture COMPLETED and verified; settlement not yet recorded
+  COMPLETED // settlement recorded
+  FAILED
+  CANCELLED
+  NEEDS_REVIEW // money captured but it could not be safely recorded (see failureReason)
+}
+
+model PayPalPayment {
+  id           String              @id @default(cuid())
+  groupId      String
+  fromMemberId String
+  toMemberId   String
+  payerUserId  String
+  status       PayPalPaymentStatus @default(INITIATED)
+
+  originalAmount   Decimal @db.Decimal(12, 2)
+  originalCurrency String
+  chargeAmount     Decimal @db.Decimal(12, 2)
+  chargeCurrency   String
+  /// Original-currency units per 1 charge-currency unit (1 when the currencies match).
+  exchangeRate     Decimal @db.Decimal(18, 8)
+
+  merchantId      String
+  paypalOrderId   String? @unique
+  paypalCaptureId String? @unique
+  captureStatus   String?
+  failureReason   String?
+  settlementId    String? @unique
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  capturedAt DateTime?
+
+  group      Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  settlement Settlement? @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+
+  // A partial unique index (one open attempt per group/payer/recipient) is added in the
+  // migration SQL, since Prisma cannot express partial indexes.
+  @@index([groupId, fromMemberId, toMemberId])
+  @@index([payerUserId])
 }
 
 // ---------- Savings goals (Phase 9) ----------

@@ -38,3 +38,48 @@ export function useRecordSettlement(groupId: string) {
     },
   });
 }
+
+// ---------- PayPal Sandbox demo ----------
+
+export interface PayPalPaymentDTO {
+  paymentId: string;
+  orderId: string | null;
+  status:
+    | "INITIATED"
+    | "ORDER_CREATED"
+    | "CAPTURE_PENDING"
+    | "CAPTURED"
+    | "COMPLETED"
+    | "FAILED"
+    | "CANCELLED"
+    | "NEEDS_REVIEW";
+  originalAmount: string;
+  originalCurrency: string;
+  chargeAmount: string;
+  chargeCurrency: string;
+  exchangeRate: string;
+  converted: boolean;
+}
+
+export interface PayPalCaptureDTO {
+  status: "COMPLETED" | "CAPTURE_PENDING";
+  payment: PayPalPaymentDTO;
+  settlementId: string | null;
+  message: string;
+}
+
+export function createPayPalOrder(groupId: string, toMemberId: string) {
+  return fetchJson<PayPalPaymentDTO>(`/api/groups/${groupId}/paypal/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ toMemberId }),
+  });
+}
+
+export function capturePayPalOrder(groupId: string, orderId: string) {
+  return fetchJson<PayPalCaptureDTO>(`/api/groups/${groupId}/paypal/capture`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId }),
+  });
+}
