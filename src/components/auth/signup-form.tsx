@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GoogleButton } from "@/components/auth/google-button";
+import { authDestination } from "@/lib/auth-destination";
 import { signupSchema } from "@/lib/validations/auth";
 
 export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
@@ -19,6 +20,8 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const callbackUrl = authDestination(searchParams.get("callbackUrl"), typeof window === "undefined" ? "https://evenly.local" : window.location.origin);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,31 +34,32 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
     }
 
     setLoading(true);
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed.data),
-    });
-    const body = await res.json();
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+      const body = await res.json();
 
-    if (!res.ok) {
+      if (!res.ok) {
+        setError(body.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+
+      const result = await signIn("credentials", { email, password, redirect: false });
+
+      if (!result?.ok || result.error) {
+        setError("Account created. Please log in.");
+        router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+        return;
+      }
+      window.location.replace(callbackUrl);
+    } catch {
+      setError("Could not reach the sign-up service. Please try again.");
+    } finally {
       setLoading(false);
-      setError(body.error ?? "Something went wrong. Please try again.");
-      return;
     }
-
-    const result = await signIn("credentials", { email, password, redirect: false });
-    setLoading(false);
-
-    const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
-
-    if (result?.error) {
-      setError("Account created. Please log in.");
-      router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
-      return;
-    }
-    router.push(callbackUrl);
-    router.refresh();
   }
 
   return (
@@ -71,7 +75,7 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
       <div className="flex flex-col">
         {googleEnabled && (
           <>
-            <GoogleButton />
+            <GoogleButton callbackUrl={callbackUrl} />
             <div className="my-6 flex items-center gap-3 text-[0.6875rem] font-medium uppercase tracking-[0.07em] text-muted-foreground">
               <span className="h-px flex-1 bg-border" />
               or

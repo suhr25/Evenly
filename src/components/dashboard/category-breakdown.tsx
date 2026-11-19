@@ -1,3 +1,5 @@
+import { ChartPie } from "lucide-react";
+import { DashboardEmptyState } from "@/components/dashboard/dashboard-empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCategoryIcon } from "@/lib/category-icons";
 import { formatMoney } from "@/lib/money";
@@ -16,12 +18,11 @@ export function CategoryBreakdown({ items, currency }: CategoryBreakdownProps) {
     <Card>
       <CardHeader>
         <CardTitle>Category breakdown</CardTitle>
+        <p className="text-[11px] text-muted-foreground">Where your money goes this month</p>
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No expenses recorded this month yet.
-          </p>
+          <DashboardEmptyState icon={ChartPie} title="A place for every purchase" description="Categorise your expenses to see what makes up your monthly spending." href="/money-flow" action="Add your first expense" />
         ) : (
           <ul className="flex flex-col gap-4">
             {items.map((item) => {

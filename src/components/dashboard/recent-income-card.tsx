@@ -1,5 +1,7 @@
 "use client";
 
+import { DashboardEmptyState } from "@/components/dashboard/dashboard-empty-state";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -31,6 +33,7 @@ const RECENT_INCOME_FILTERS = {
 };
 
 export function RecentIncomeCard({ currency }: { currency: string }) {
+  const router = useRouter();
   const { data, isLoading } = useIncome(RECENT_INCOME_FILTERS);
   const deleteIncome = useDeleteIncome();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -52,6 +55,7 @@ export function RecentIncomeCard({ currency }: { currency: string }) {
     try {
       await deleteIncome.mutateAsync(pendingDelete.id);
       toast.success("Income deleted");
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete income");
     } finally {
@@ -81,11 +85,9 @@ export function RecentIncomeCard({ currency }: { currency: string }) {
             ))}
           </div>
         ) : !data || data.income.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No income logged yet. Add your salary, freelance, or other earnings here.
-          </p>
+          <DashboardEmptyState icon={PiggyBank} title="Make room for the money coming in" description="Track your salary, freelance work, and other earnings alongside your spending." href="/money-flow?tab=income" action="View your income" />
         ) : (
-          <ul className="flex flex-col divide-y">
+          <ul className="dashboard-income-list flex flex-col divide-y">
             {data.income.map((income) => (
               <li key={income.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15">
@@ -130,7 +132,7 @@ export function RecentIncomeCard({ currency }: { currency: string }) {
         )}
       </CardContent>
 
-      <IncomeFormDialog open={dialogOpen} onOpenChange={setDialogOpen} income={editingIncome} />
+      <IncomeFormDialog open={dialogOpen} onOpenChange={setDialogOpen} income={editingIncome} onSaved={() => router.refresh()} />
 
       <AlertDialog open={pendingDelete !== null} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <AlertDialogContent>

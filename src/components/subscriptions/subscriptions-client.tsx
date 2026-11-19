@@ -27,7 +27,7 @@ export function SubscriptionsClient({ currency }: { currency: string }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Subscriptions</h1>
+        <h1 className="workspace-title">Subscriptions</h1>
         <p className="text-sm text-muted-foreground">
           Recurring charges detected from your expense history.
         </p>

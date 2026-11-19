@@ -14,7 +14,7 @@ export function GroupsClient({ currency }: { currency: string }) {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Groups</h1>
+          <h1 className="workspace-title">Groups</h1>
           <p className="text-sm text-muted-foreground">Split expenses with friends, roommates, or a trip.</p>
         </div>
         <CreateGroupDialog

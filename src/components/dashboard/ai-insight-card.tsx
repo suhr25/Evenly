@@ -1,69 +1,38 @@
-import { Sparkles } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BorderGlow } from "@/components/ui/border-glow";
+import Link from "next/link";
+import { Sparkles, ArrowUpRight } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import type { AIInsight } from "@/types/ai";
 import type { InsightResult } from "@/lib/data/insights";
 
-// Purple marks AI as a product surface. Severity still uses the financial
-// semantics so a warning reads the same here as it does anywhere else.
-const SEVERITY_DOT: Record<AIInsight["severity"], string> = {
-  info: "bg-primary",
-  warning: "bg-warning",
-  positive: "bg-positive",
+const SEVERITY_DOT: Record<AIInsight["severity"], string> = { info: "bg-primary", warning: "bg-warning", positive: "bg-positive" };
+const UNAVAILABLE_COPY = {
+  "no-data": "Once you’ve logged a few expenses, find useful patterns and a little perspective here.",
+  error: "Insights couldn’t be generated just now. Check back on your next visit.",
+  "not-configured": "AI insights are currently unavailable. You can keep tracking and planning as usual.",
 };
-
-// Each reason gets its own line, because they ask different things of the
-// reader: wait, come back later, or go and configure something.
-const UNAVAILABLE_COPY: Record<
-  Extract<InsightResult, { available: false }>["reason"],
-  string
-> = {
-  "no-data": "Add a few expenses and insights will start appearing here.",
-  error: "Insights could not be generated just now. They will be back on your next visit.",
-  "not-configured":
-    "AI features are currently unavailable. Everything else in Evenly still works.",
-};
-
 export function AIInsightCard({ result }: { result: InsightResult }) {
   return (
-    // Edge glow marks the AI panel as the one generated surface on the page.
-    <BorderGlow glowColor="258 90% 72%" borderRadius={12} glowRadius={34} fillOpacity={0.3}>
-      <Card className="ai-surface border-transparent bg-transparent shadow-none">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2.5 text-[0.9375rem]">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-[7px] bg-brand-subtle text-primary">
-            <Sparkles className="size-3.5" aria-hidden strokeWidth={2} />
-          </span>
-          AI insights
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {!result.available ? (
-          <p className="text-sm text-muted-foreground">{UNAVAILABLE_COPY[result.reason]}</p>
-        ) : result.insights.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Keep tracking your expenses. Insights will show up here once there&apos;s enough data.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {result.insights.map((insight, i) => (
-              <li key={i} className="flex gap-3">
-                <span
-                  className={`mt-[0.4375rem] size-1.5 shrink-0 rounded-full ${SEVERITY_DOT[insight.severity]}`}
-                  aria-hidden
-                />
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-[0.8125rem] font-medium leading-snug">{insight.title}</p>
-                  <p className="text-[0.8125rem] leading-relaxed text-muted-foreground">
-                    {insight.description}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
+    <Card className="dashboard-insights relative border-primary/15 bg-brand-subtle/20 shadow-none">
+      <div className="flex flex-col gap-4 px-5 sm:flex-row sm:items-start sm:gap-4">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-primary/15 bg-brand-subtle text-primary">
+          <Sparkles className="size-[18px]" aria-hidden strokeWidth={1.6} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex items-center gap-2.5">
+            <h2 className="text-sm font-medium">A little insight goes a long way</h2>
+            <span className="rounded border border-primary/15 px-1.5 py-0.5 text-[8px] font-medium tracking-wider text-primary">AI</span>
+          </div>
+          {!result.available ? <p className="max-w-2xl text-xs leading-6 text-muted-foreground">{UNAVAILABLE_COPY[result.reason]}</p> : result.insights.length === 0 ? <p className="text-xs leading-6 text-muted-foreground">Keep tracking your expenses. Insights will appear when there’s enough data.</p> : <ul className="space-y-3">{result.insights.map((insight, i) => <li key={i} className="flex gap-2.5">
+            <span className={`mt-1.5 size-1.5 shrink-0 rounded-full ${SEVERITY_DOT[insight.severity]}`} aria-hidden />
+            <div>
+              <p className="text-xs font-medium">{insight.title}</p>
+              <p className="mt-1 text-xs leading-6 text-muted-foreground">{insight.description}</p>
+            </div>
+          </li>)}</ul>}
+        </div>
+        <Link href="/ai-chat" className="inline-flex min-h-9 shrink-0 items-center gap-1.5 self-start rounded-lg border border-primary/15 bg-card px-3 text-[11px] font-medium text-primary transition-colors hover:bg-brand-subtle">Ask Evenly<ArrowUpRight className="size-3.5" aria-hidden />
+        </Link>
+      </div>
     </Card>
-    </BorderGlow>
   );
 }

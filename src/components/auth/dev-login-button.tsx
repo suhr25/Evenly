@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+
 import { Loader2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -15,8 +15,8 @@ import { Button } from "@/components/ui/button";
  * is a straightforward authentication bypass, so it must never reach a
  * deployed build even if the render guard is ever refactored away.
  */
-export function DevLoginButton() {
-  const router = useRouter();
+export function DevLoginButton({ destination }: { destination: string }) {
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (process.env.NODE_ENV === "production") return null;
@@ -24,15 +24,23 @@ export function DevLoginButton() {
   async function handleDevLogin() {
     if (process.env.NODE_ENV === "production") return;
     setLoading(true);
-    const result = await signIn("credentials", {
-      email: "demo@evenly.app",
-      password: "password123",
-      redirect: false,
-    });
-    setLoading(false);
-    if (result?.error) return;
-    router.push("/dashboard");
-    router.refresh();
+    setError("");
+    try {
+      const result = await signIn("credentials", {
+        email: "demo@evenly.app", password: "password123", redirect: false,
+      });
+      if (!result?.ok || result.error) {
+        setError(result?.error === "CredentialsSignin"
+          ? "The demo credentials do not match the seeded account."
+          : "Demo sign-in is unavailable. Check that local PostgreSQL is running.");
+        return;
+      }
+      window.location.replace(destination);
+    } catch {
+      setError("Could not reach the sign-in service. Try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -53,8 +61,9 @@ export function DevLoginButton() {
         ) : (
           <Zap className="size-4" aria-hidden />
         )}
-        Skip to dashboard as demo user
+        Open demo workspace
       </Button>
+      {error && <p role="alert" className="mt-2 text-xs text-negative">{error}</p>}
     </div>
   );
 }

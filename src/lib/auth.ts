@@ -50,7 +50,20 @@ const providers: NextAuthConfig["providers"] = [
 ];
 
 if (isGoogleAuthEnabled()) {
-  providers.unshift(Google);
+  providers.unshift(Google({
+    // Only Google may link by email, and signIn below requires its verified claim.
+    // Auth.js persists the Google subject against the existing user via the adapter,
+    // preserving that user's password, expenses, memberships, and other data.
+    allowDangerousEmailAccountLinking: true,
+    profile(profile) {
+      return {
+        id: profile.sub,
+        name: profile.name,
+        email: typeof profile.email === "string" ? profile.email.trim().toLowerCase() : null,
+        image: profile.picture,
+      };
+    },
+  }));
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -59,6 +72,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   callbacks: {
     ...authConfig.callbacks,
+    signIn({ account, profile }) {
+      if (account?.provider !== "google") return true;
+      // This runs before Auth.js creates or links an account. Never trust an
+      // unverified (or missing) email when matching a password account.
+      return profile?.email_verified === true &&
+        typeof profile.email === "string" && profile.email.trim().length > 0;
+    },
     /**
      * A JWT outlives the row it points at. Pointing the app at a different
      * database, restoring a backup, or deleting an account all leave a

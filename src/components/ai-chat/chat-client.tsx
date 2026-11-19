@@ -77,7 +77,7 @@ export function ChatClient() {
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4 md:h-[calc(100vh-4rem)]">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">AI Assistant</h1>
+          <h1 className="workspace-title">AI Assistant</h1>
           <p className="text-sm text-muted-foreground">Ask about your real spending, income, and balances.</p>
         </div>
         {messages.length > 0 && (

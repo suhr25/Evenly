@@ -47,7 +47,7 @@ export function MoneyFlowClient({ currency }: { currency: string }) {
     <div className="flex flex-col gap-6 pb-16 md:pb-0">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Money Flow</h1>
+          <h1 className="workspace-title">Money Flow</h1>
           <p className="text-sm text-muted-foreground">
             {tab === "expenses"
               ? expenseData
