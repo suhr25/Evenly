@@ -62,10 +62,11 @@ function fromIncome(income: IncomeDTO): FormState {
 interface IncomeFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
   income?: IncomeDTO | null;
 }
 
-export function IncomeFormDialog({ open, onOpenChange, income }: IncomeFormDialogProps) {
+export function IncomeFormDialog({ open, onOpenChange, income, onSaved }: IncomeFormDialogProps) {
   const isEdit = Boolean(income);
   const createIncome = useCreateIncome();
   const updateIncome = useUpdateIncome();
@@ -114,6 +115,7 @@ export function IncomeFormDialog({ open, onOpenChange, income }: IncomeFormDialo
         await createIncome.mutateAsync(input);
         toast.success("Income added");
       }
+      onSaved?.();
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");

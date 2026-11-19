@@ -96,10 +96,11 @@ function fromExpense(expense: ExpenseDTO): FormState {
 interface ExpenseFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
   expense?: ExpenseDTO | null;
 }
 
-export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDialogProps) {
+export function ExpenseFormDialog({ open, onOpenChange, expense, onSaved }: ExpenseFormDialogProps) {
   const isEdit = Boolean(expense);
   const { data: categories } = useCategories();
   const { data: myCards } = useMyCards();
@@ -162,6 +163,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense }: ExpenseFormDi
         await createExpense.mutateAsync(input);
         toast.success("Expense added");
       }
+      onSaved?.();
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");

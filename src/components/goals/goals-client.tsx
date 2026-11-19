@@ -35,7 +35,7 @@ export function GoalsClient({ currency }: { currency: string }) {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Savings goals</h1>
+          <h1 className="workspace-title">Savings goals</h1>
           <p className="text-sm text-muted-foreground">Save toward something specific and track your progress.</p>
         </div>
         <Button onClick={openCreate}>

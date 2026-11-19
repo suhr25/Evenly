@@ -149,7 +149,7 @@ export function BudgetsClient({ currency }: { currency: string }) {
     <div className="section-seq flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[1.375rem] font-semibold leading-tight tracking-[-0.02em]">Budgets</h1>
+          <h1 className="workspace-title">Budgets</h1>
           <p className="mt-1.5 text-[0.8125rem] text-muted-foreground">
             Monthly limits per category, tracked against your actual spend.
           </p>

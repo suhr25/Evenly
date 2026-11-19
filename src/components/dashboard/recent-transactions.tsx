@@ -1,3 +1,5 @@
+import { ReceiptText } from "lucide-react";
+import { DashboardEmptyState } from "@/components/dashboard/dashboard-empty-state";
 import { format } from "date-fns";
 import Link from "next/link";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,9 +34,7 @@ export function RecentTransactions({ items, currency }: RecentTransactionsProps)
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No transactions yet. Once you add expenses, they&apos;ll show up here.
-          </p>
+          <DashboardEmptyState icon={ReceiptText} title="Your everyday money, in one place" description="New expenses will appear here, ready to review at a glance." href="/money-flow" action="Open Money Flow" />
         ) : (
           <ul className="flex flex-col divide-y">
             {items.map((tx) => {

@@ -1,3 +1,5 @@
+import { PiggyBank } from "lucide-react";
+import { DashboardEmptyState } from "@/components/dashboard/dashboard-empty-state";
 import Link from "next/link";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCategoryIcon } from "@/lib/category-icons";
@@ -34,12 +36,7 @@ export function BudgetList({ items, currency }: BudgetListProps) {
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <p className="text-sm text-muted-foreground">You haven&apos;t set any budgets yet.</p>
-            <Link href="/budgets" className="text-sm font-medium underline underline-offset-2">
-              Set your first budget
-            </Link>
-          </div>
+          <DashboardEmptyState icon={PiggyBank} title="Give your spending a little direction" description="Set category limits and see how much room you have left each month." href="/budgets" action="Set your first budget" />
         ) : (
           <ul className="flex flex-col gap-4">
             {items.map((item) => {

@@ -1,4 +1,4 @@
-import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
+import { endOfMonth, getDaysInMonth, format, startOfMonth, subMonths } from "date-fns";
 import { getUserGroupBalanceSummary, type UserGroupBalanceSummary } from "@/lib/data/groups";
 import { prisma } from "@/lib/prisma";
 import { addMoney, subtractMoney, toMoney } from "@/lib/money";
@@ -38,7 +38,15 @@ export interface SpendingTrendPoint {
   amount: string;
 }
 
+export interface ActivityMonth {
+  name: string;
+  days: number[];
+  income: number;
+}
+
 export interface DashboardData {
+  activityMonths: ActivityMonth[];
+  activityDay: number;
   currency: string;
   balance: string;
   monthlyIncome: string;
@@ -142,22 +150,33 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
     })
   );
 
-  const spendingTrend: SpendingTrendPoint[] = await Promise.all(
-    Array.from({ length: TREND_MONTHS }, (_, i) => TREND_MONTHS - 1 - i).map(async (offset) => {
-      const monthDate = subMonths(now, offset);
-      const start = startOfMonth(monthDate);
-      const end = endOfMonth(monthDate);
-      const agg = await prisma.expense.aggregate({
-        where: { userId, date: { gte: start, lte: end } },
-        _sum: { amount: true },
-      });
-      return {
-        month: format(start, "yyyy-MM"),
-        label: format(start, "MMM"),
-        amount: toMoney(agg._sum.amount?.toString() ?? "0").toString(),
-      };
-    })
-  );
+  const historyStart = startOfMonth(subMonths(now, TREND_MONTHS - 1));
+  const historyWhere = { userId, date: { gte: historyStart, lte: monthEnd } };
+  const [expenseDates, incomeDates] = await Promise.all([
+    prisma.expense.groupBy({ by: ["date"], where: historyWhere, _sum: { amount: true } }),
+    prisma.income.groupBy({ by: ["date"], where: historyWhere, _sum: { amount: true } }),
+  ]);
+  const dates = Array.from({ length: TREND_MONTHS }, (_, i) => subMonths(monthStart, TREND_MONTHS - 1 - i));
+  const activityMonths = dates.map(date => ({
+    name: format(date, "MMM yyyy"),
+    days: Array<number>(getDaysInMonth(date)).fill(0),
+    income: 0,
+  }));
+  const byMonth = new Map(dates.map((date, i) => [format(date, "yyyy-MM"), activityMonths[i]]));
+  for (const row of expenseDates) {
+    const month = byMonth.get(format(row.date, "yyyy-MM"))!;
+    const day = row.date.getDate() - 1;
+    month.days[day] = addMoney(month.days[day], row._sum.amount?.toString() ?? 0).toNumber();
+  }
+  for (const row of incomeDates) {
+    const month = byMonth.get(format(row.date, "yyyy-MM"))!;
+    month.income = addMoney(month.income, row._sum.amount?.toString() ?? 0).toNumber();
+  }
+  const spendingTrend = dates.map((date, i) => ({
+    month: format(date, "yyyy-MM"),
+    label: format(date, "MMM"),
+    amount: addMoney(...activityMonths[i].days).toString(),
+  }));
 
   const recentTransactions: RecentTransaction[] = recent.map((e) => ({
     id: e.id,
@@ -171,6 +190,8 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
   }));
 
   return {
+    activityMonths,
+    activityDay: now.getDate() - 1,
     currency: user.currency,
     balance: balance.toString(),
     monthlyIncome: monthlyIncome.toString(),

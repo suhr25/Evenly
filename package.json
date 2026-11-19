@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "docker compose up -d --wait postgres && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Wallet, TrendingUp, TrendingDown, PiggyBank, Sparkles } from "lucide-react";
+import { CalendarDays, Wallet, TrendingUp, TrendingDown, PiggyBank, Sparkles } from "lucide-react";
 import { requireSession } from "@/lib/session";
 import { getDashboardData } from "@/lib/data/dashboard";
 import { computeFinancialInsights } from "@/lib/data/financial-insights";
@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BorderTrail } from "@/components/ui/border-trail";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { CategoryBreakdown } from "@/components/dashboard/category-breakdown";
+import { SpendingActivity } from "@/components/dashboard/spending-activity";
 import { SpendingTrendChart } from "@/components/dashboard/spending-trend-chart";
 import { BudgetList } from "@/components/dashboard/budget-list";
 import { RecentTransactions } from "@/components/dashboard/recent-transactions";
@@ -19,6 +20,9 @@ import { AIInsightSection } from "@/components/dashboard/ai-insight-section";
 import { PendingImportsPrompt } from "@/components/dashboard/pending-imports-prompt";
 import { FinancialInsightsCard } from "@/components/dashboard/financial-insights-card";
 import { CardInsightsCard } from "@/components/dashboard/card-insights-card";
+
+import { DashboardActions } from "@/components/dashboard/dashboard-actions";
+import { DashboardGettingStarted } from "@/components/dashboard/getting-started";
 
 export const metadata: Metadata = { title: "Dashboard | Evenly" };
 
@@ -61,18 +65,17 @@ export default async function DashboardPage() {
   const firstName = session.user.name?.split(" ")[0] ?? "there";
 
   return (
-    <div className="section-seq flex flex-col gap-6 md:gap-7">
-      <div>
-        <h1 className="text-[1.375rem] font-semibold leading-tight tracking-[-0.02em]">
-          Welcome back, {firstName}
-        </h1>
-        <p className="mt-1.5 text-[0.8125rem] text-muted-foreground">
-          {new Date().toLocaleDateString(undefined, {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-          })}
-        </p>
+    <div className="dashboard-view section-seq flex flex-col gap-6">
+      <div className="workspace-intro flex flex-col justify-between gap-5 xl:flex-row xl:items-center">
+        <div>
+          <p className="mb-3 flex items-center gap-2 text-xs text-[#e0d2f5]"><CalendarDays size={15} aria-hidden />{new Date().toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "Asia/Kolkata" })}</p>
+          <h1 className="text-3xl font-medium leading-tight tracking-[-.045em] sm:text-4xl">Welcome back, <em className="font-serif text-[#d6c1ff]">{firstName}.</em>
+          </h1>
+        </div>
+        <DashboardActions />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold tracking-tight">Balance and cash flow</h2>
       </div>
 
       <PendingImportsPrompt userId={session.user.id} currency={data.currency} />
@@ -80,6 +83,8 @@ export default async function DashboardPage() {
       <div className="stagger grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-5">
         <StatCard
           label="Current balance"
+          description="All recorded income minus expenses"
+          href="/money-flow"
           amount={data.balance}
           currency={data.currency}
           icon={Wallet}
@@ -88,6 +93,8 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Monthly income"
+          description="Income recorded this month"
+          href="/money-flow?tab=income"
           amount={data.monthlyIncome}
           currency={data.currency}
           icon={TrendingUp}
@@ -95,6 +102,8 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Monthly expenses"
+          description="Spending recorded this month"
+          href="/money-flow"
           amount={data.monthlyExpenses}
           currency={data.currency}
           icon={TrendingDown}
@@ -102,6 +111,8 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Monthly savings"
+          description="This month’s income minus expenses"
+          href="/money-flow"
           amount={data.monthlySavings}
           currency={data.currency}
           icon={PiggyBank}
@@ -109,18 +120,25 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {!data.hasAnyData && <DashboardGettingStarted />}
+
+
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <SpendingActivity months={data.activityMonths} currency={data.currency} initialMonth={data.activityMonths.length - 1} initialDay={data.activityDay} />
+        <SpendingTrendChart data={data.spendingTrend} currency={data.currency} />
+
+      </div>
+
       <Suspense fallback={<AIInsightSkeleton />}>
         <AIInsightSection data={data} />
       </Suspense>
 
+      <CategoryBreakdown items={data.categoryBreakdown} currency={data.currency} />
+
       <FinancialInsightsCard items={financialInsights} />
 
       <CardInsightsCard items={cardInsights} />
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <SpendingTrendChart data={data.spendingTrend} currency={data.currency} />
-        <CategoryBreakdown items={data.categoryBreakdown} currency={data.currency} />
-      </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <BudgetList items={data.budgets} currency={data.currency} />
